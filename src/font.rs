@@ -1,5 +1,6 @@
 use crate::error::{ShipLabelError, ShipLabelResult};
 use krilla::text::Font;
+use skrifa::{FontRef, MetadataProvider, instance::{Size, LocationRef}};
 
 /// Font manager for handling embedded Google Fonts
 #[derive(Debug, Clone)]
@@ -61,6 +62,63 @@ impl FontManager {
         } else {
             &self.regular
         }
+    }
+
+    /// Calculate actual text width using glyph advances from skrifa
+    pub fn measure_text_accurate(&self, text: &str, font_size: f32, use_bold: bool) -> f32 {
+        // Use embedded font data directly since we know the font files
+        let font_bytes: &[u8] = if use_bold {
+            include_bytes!("assets/fonts/Roboto/static/Roboto-Bold.ttf")
+        } else {
+            include_bytes!("assets/fonts/Roboto/static/Roboto-Regular.ttf")
+        };
+
+        // Load with skrifa for accurate measurement
+        if let Ok(font_ref) = FontRef::new(font_bytes) {
+            let charmap = font_ref.charmap();
+            let mut total_width = 0.0;
+
+            // Get glyph metrics for advance width calculation
+            let glyph_metrics = font_ref.glyph_metrics(Size::unscaled(), LocationRef::default());
+            let units_per_em = font_ref.metrics(Size::unscaled(), LocationRef::default()).units_per_em as f32;
+
+            for ch in text.chars() {
+                // Get glyph ID for character
+                if let Some(glyph_id) = charmap.map(ch) {
+                    // Get advance width and scale to font size
+                    if let Some(advance) = glyph_metrics.advance_width(glyph_id) {
+                        let scaled_advance = advance * (font_size / units_per_em);
+                        total_width += scaled_advance;
+                    }
+                }
+            }
+
+            return total_width;
+        }
+
+        // Fallback to approximation if skrifa fails
+        self.measure_text_fallback(text, font_size, use_bold)
+    }
+
+    /// Fallback text measurement using character approximations
+    fn measure_text_fallback(&self, text: &str, font_size: f32, use_bold: bool) -> f32 {
+        // Better character width approximations based on Roboto font
+        let char_widths = [
+            ('P', 0.75), ('e', 0.55), ('n', 0.65), ('r', 0.45), ('i', 0.35),
+            ('m', 0.85), ('a', 0.55), (':', 0.35)
+        ];
+
+        let mut total_width = 0.0;
+        for ch in text.chars() {
+            let width_ratio = char_widths.iter()
+                .find(|(c, _)| *c == ch)
+                .map(|(_, w)| *w)
+                .unwrap_or(0.5); // Default width
+            total_width += width_ratio;
+        }
+
+        // Scale by font size
+        total_width * font_size
     }
 
 }

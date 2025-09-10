@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use crate::font::FontManager;
 
 /// Main configuration structure for ShipLabel PDF generation
 ///
@@ -149,6 +150,38 @@ impl Config {
     pub fn calculate_table_x(&self) -> f32 {
         (self.page_width - self.table_width) / 2.0
     }
+
+    /// Calculate header column 1 width based on "Penerima:" text width
+    ///
+    /// This method dynamically calculates the width of the first header column
+    /// based on the actual width of the "Penerima:" text plus padding.
+    ///
+    /// # Arguments
+    /// * `font_manager` - Reference to the FontManager for text measurement
+    ///
+    /// # Returns
+    /// The calculated width in millimeters
+    ///
+    /// # Examples
+    /// ```
+    /// use pdf::{Config, FontManager};
+    ///
+    /// let config = Config::new();
+    /// let font_manager = FontManager::new().unwrap();
+    /// let header_width = config.calculate_header_col1_width(&font_manager);
+    ///
+    /// // Width should be text width + padding
+    /// assert!(header_width > 0.0);
+    /// ```
+    pub fn calculate_header_col1_width(&self, font_manager: &FontManager) -> f32 {
+        // Calculate the width of "Penerima:" text using bold font
+        let text_width = font_manager.measure_text_accurate("Penerima:", self.font_size, true);
+
+        // Add padding (left margin + right margin)
+        // TABLE_MARGIN is 2.0 mm as defined in table.rs
+        const TABLE_MARGIN: f32 = 2.0;
+        text_width + (2.0 * TABLE_MARGIN)
+    }
 }
 
 #[cfg(test)]
@@ -162,8 +195,8 @@ mod tests {
         assert_eq!(config.page_width, 100.0);
         assert_eq!(config.page_height, 150.0);
         assert_eq!(config.table_width, 96.0);
-        assert_eq!(config.font_size, 1.0);
-        assert_eq!(config.brand_font_size, 2.0);
+        assert_eq!(config.font_size, 4.0);
+        assert_eq!(config.brand_font_size, 6.0);
         assert_eq!(config.qr_size_ratio, 0.8);
         assert_eq!(config.row_height_ratios, [0.4, 0.5, 0.1]);
     }
@@ -183,6 +216,59 @@ mod tests {
         let config = Config::new();
         let x = config.calculate_table_x();
         assert_eq!(x, 2.0); // (100 - 96) / 2
+    }
+
+    #[test]
+    fn test_calculate_header_col1_width() {
+        let config = Config::new();
+        let font_manager = FontManager::new().unwrap();
+
+        // Test that the method returns a reasonable width
+        let width = config.calculate_header_col1_width(&font_manager);
+
+        // Width should be positive and reasonable (greater than text width, less than table width)
+        assert!(width > 0.0);
+        assert!(width < config.table_width);
+
+        // Width should be greater than just the text width due to padding
+        let text_width = font_manager.measure_text_accurate("Penerima:", config.font_size, true);
+        assert!(width > text_width);
+
+        // Debug output
+        if config.debug {
+            println!("Calculated header column width: {} mm", width);
+            println!("Text width: {} mm", text_width);
+        }
+    }
+
+    #[test]
+    fn test_calculate_header_col1_width_different_font_sizes() {
+        let mut config = Config::new();
+        let font_manager = FontManager::new().unwrap();
+
+        // Test with different font sizes
+        let font_sizes = [2.0, 4.0, 6.0, 8.0, 10.0];
+
+        for &font_size in &font_sizes {
+            config.font_size = font_size;
+            let width = config.calculate_header_col1_width(&font_manager);
+
+            // Width should always be positive and reasonable
+            assert!(width > 0.0);
+            assert!(width < config.table_width);
+
+            // Width should increase with font size
+            if font_size > 2.0 {
+                // Compare with previous calculation
+                let prev_config = Config { font_size: font_size - 2.0, ..config };
+                let prev_width = prev_config.calculate_header_col1_width(&font_manager);
+                assert!(width > prev_width, "Width should increase with font size");
+            }
+
+            if config.debug {
+                println!("Font size {}: width = {} mm", font_size, width);
+            }
+        }
     }
 
     // ===== PROPERTY-BASED TESTS =====

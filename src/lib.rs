@@ -349,7 +349,7 @@ mod tests {
 
     #[test]
     fn test_unicode_handling() {
-        let unicode_data = format!("[{TEST_UNICODE_CONTENT}, \"Test Address\", \"555-0123\"]");
+        let unicode_data = format!("[\"{TEST_UNICODE_CONTENT}\", \"Test Address\", \"555-0123\"]");
         let parsed: serde_json::Value = serde_json::from_str(&unicode_data).unwrap();
         let name = parsed[0].as_str().unwrap();
         assert_eq!(name, TEST_UNICODE_CONTENT);

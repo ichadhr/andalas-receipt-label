@@ -107,7 +107,7 @@ impl<'a> TableRenderer<'a> {
         }
 
         // Draw vertical line for header column (at end of Penerima: column)
-        let header_col_width = self.config.header_col1_width;
+        let header_col_width = self.config.calculate_header_col1_width(self.font_manager);
         let vertical_line_x = x + header_col_width; // Vertical line at end of header column
         path_builder.move_to(vertical_line_x, y);
         path_builder.line_to(vertical_line_x, y + row_heights[0]);
@@ -165,7 +165,7 @@ impl<'a> TableRenderer<'a> {
             return Ok(());
         }
 
-        let header_col_width = self.config.header_col1_width;
+        let header_col_width = self.config.calculate_header_col1_width(self.font_manager);
 
         // OPTIMIZATION: Set fill once at the beginning, not before each text render
         let black_fill = krilla::paint::Fill {
