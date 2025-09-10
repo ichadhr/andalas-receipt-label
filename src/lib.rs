@@ -210,10 +210,11 @@ impl ShipLabel {
 mod tests {
     use super::*;
 
-    // Test data constants to reduce duplication
+    // ===== TEST DATA CONSTANTS =====
     const TEST_QR_CONTENT: &str = "https://example.com/test";
     const TEST_UNICODE_CONTENT: &str = "José María";
 
+    // ===== SHIPLABEL CONSTRUCTION TESTS =====
     #[test]
     fn test_shiplabel_creation() {
         let shiplabel = ShipLabel::new().unwrap();
@@ -236,6 +237,7 @@ mod tests {
         assert!(debug_str.contains("ShipLabel"));
     }
 
+    // ===== INTEGRATION TESTS =====
     #[test]
     fn test_basic_krilla_integration() {
         use krilla::geom::Size;
@@ -263,6 +265,7 @@ mod tests {
         assert!(!std::ptr::eq(font_manager.get_font(false), font_manager.get_font(true)));
     }
 
+    // ===== CONFIGURATION TESTS =====
     #[test]
     fn test_configuration_calculations() {
         let config = Config::new();
@@ -279,6 +282,7 @@ mod tests {
         assert!((total_height - config.table_height).abs() < 0.001);
     }
 
+    // ===== QR CODE TESTS =====
     #[test]
     fn test_qr_integration() {
         let shiplabel = ShipLabel::new().unwrap();
@@ -294,7 +298,7 @@ mod tests {
     }
 
     #[test]
-    fn test_edge_cases() {
+    fn test_qr_edge_cases() {
         // Test various QR content edge cases
         let long_content = "Long content".repeat(10);
         let test_cases = vec![
@@ -310,20 +314,9 @@ mod tests {
             assert!(generate_qr_svg(&content).is_ok(),
                 "QR generation failed for: {}", content);
         }
-
-        // Test extreme config values
-        let mut config = Config::new();
-        config.page_width = 10.0;
-        config.page_height = 10.0;
-        config.table_width = 5.0;
-        config.table_height = 5.0;
-        config.font_size = 1.0;
-
-        // Should not panic
-        let _ = config.calculate_row_heights();
-        let _ = config.calculate_table_x();
     }
 
+    // ===== DATA VALIDATION TESTS =====
     #[test]
     fn test_data_format_validation() {
         // Test parsing sample JSON format
@@ -355,6 +348,22 @@ mod tests {
         assert_eq!(name, TEST_UNICODE_CONTENT);
     }
 
+    // ===== EDGE CASE TESTS =====
+    #[test]
+    fn test_extreme_config_values() {
+        let mut config = Config::new();
+        config.page_width = 10.0;
+        config.page_height = 10.0;
+        config.table_width = 5.0;
+        config.table_height = 5.0;
+        config.font_size = 1.0;
+
+        // Should not panic
+        let _ = config.calculate_row_heights();
+        let _ = config.calculate_table_x();
+    }
+
+    // ===== PERFORMANCE TESTS =====
     #[test]
     fn test_performance_basics() {
         use std::time::Instant;
@@ -379,6 +388,7 @@ mod tests {
         assert!(start.elapsed().as_millis() < 1);
     }
 
+    // ===== MEMORY TESTS =====
     #[test]
     fn test_memory_usage() {
         let shiplabel = ShipLabel::new().unwrap();

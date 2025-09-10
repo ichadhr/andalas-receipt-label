@@ -18,15 +18,8 @@ use krilla::surface::Surface;
 
 // Table rendering constants
 const TABLE_MARGIN: f32 = 2.0;
-const HEADER_COL1_WIDTH_RATIO: f32 = 0.4; // 40% of table width for order ID
 const QR_VERTICAL_CENTER_RATIO: f32 = 0.5; // Center QR vertically
-const QR_SIZE_RATIO: f32 = 0.8; // QR size relative to row height
-const BRAND_FIRST_LINE_RATIO: f32 = 0.3; // Position of first brand line
-const BRAND_SUBSEQUENT_RATIO: f32 = 0.55; // Position of subsequent brand lines
-const BRAND_LINE_SPACING_RATIO: f32 = 0.25; // Spacing between brand lines
-const ORDER_ID_RATIO: f32 = 0.5; // Center order ID vertically
-const ORDER_DATE_RATIO: f32 = 0.5; // Center date vertically
-const TABLE_BORDER_WIDTH: f32 = 0.4;
+const TABLE_BORDER_WIDTH: f32 = 0.35;
 
 /// Table renderer for shipping labels
 pub struct TableRenderer<'a> {
@@ -281,7 +274,7 @@ impl<'a> TableRenderer<'a> {
         surface.set_fill(Some(black_fill));
 
         // Left side: QR code
-        let qr_size = height * QR_SIZE_RATIO;
+        let qr_size = height * self.config.qr_size_ratio;
         let qr_x = x + TABLE_MARGIN;
         let qr_y = y + (height - qr_size) * QR_VERTICAL_CENTER_RATIO; // Center vertically
 
@@ -290,33 +283,56 @@ impl<'a> TableRenderer<'a> {
         embed_qr_svg(surface, &qr_svg, qr_x, qr_y, qr_size)?;
 
         // Right side: Brand information
-        let brand_x = x + qr_size + 2.0 * TABLE_MARGIN;
-        let _brand_width = self.config.table_width - qr_size - 3.0 * TABLE_MARGIN;
+        let brand_start_x = x + qr_size + 2.0 * TABLE_MARGIN;
+        let brand_width = self.config.table_width - qr_size - 3.0 * TABLE_MARGIN;
+        let brand_center_x = brand_start_x + (brand_width / 2.0);
 
         if !brand_lines.is_empty() {
-            // First line (brand name)
-            let first_line_y = y + height * BRAND_FIRST_LINE_RATIO;
+            // Calculate total height of brand text block for vertical centering
+            let brand_line_count = brand_lines.len() as f32;
+            let line_spacing = height * self.config.brand_line_spacing_ratio;
+            let first_line_height = self.config.brand_font_size;
+            let subsequent_line_height = self.config.font_size;
+
+            // Calculate total height: first line + (subsequent lines - 1) * spacing + last line
+            let total_brand_height = if brand_line_count == 1.0 {
+                first_line_height
+            } else {
+                first_line_height + (brand_line_count - 1.0) * line_spacing
+            };
+
+            // Center the entire brand block vertically in the brand column
+            let brand_center_y = y + (height / 2.0);
+            let brand_block_start_y = brand_center_y - (total_brand_height / 2.0);
+
+            // First line (brand name) - centered horizontally and vertically
+            let first_line_y = brand_block_start_y + (first_line_height / 2.0);
+            let first_line_width = self.font_manager.measure_text_with_font(&brand_lines[0], self.config.brand_font_size, false, true);
+            let centered_brand_x = brand_center_x - (first_line_width / 2.0);
+
             render_text(
                 surface,
-                brand_x,
+                centered_brand_x,
                 first_line_y,
                 &brand_lines[0],
                 self.config.brand_font_size,
                 self.font_manager,
                 true,  // Use brand font (Merriweather) for brand text
-                false, // Brand font already provides styling
+                true,  // Use bold for brand name
             )?;
 
-            // Remaining lines normal weight
-            let mut current_y = y + height * BRAND_SUBSEQUENT_RATIO;
-            let line_spacing = height * BRAND_LINE_SPACING_RATIO;
+            // Remaining lines normal weight - centered horizontally and positioned with spacing
+            let mut current_y = brand_block_start_y + first_line_height + line_spacing;
 
             for line in &brand_lines[1..] {
                 if !line.trim().is_empty() {
+                    let line_width = self.font_manager.measure_text_accurate(line, self.config.font_size, false);
+                    let centered_line_x = brand_center_x - (line_width / 2.0);
+
                     render_text(
                         surface,
-                        brand_x,
-                        current_y,
+                        centered_line_x,
+                        current_y + (subsequent_line_height / 2.0),
                         line,
                         self.config.font_size,
                         self.font_manager,
@@ -388,7 +404,7 @@ impl<'a> TableRenderer<'a> {
 
         // Left side: Order ID - use bold like main_minimal.rs
         let order_x = x + TABLE_MARGIN;
-        let order_y = y + height * ORDER_ID_RATIO; // Center vertically
+        let order_y = y + height * 0.62; // Simple vertical centering
         render_text(
             surface,
             order_x,
@@ -401,9 +417,9 @@ impl<'a> TableRenderer<'a> {
         )?;
 
         // Right side: Date (right-aligned) - keep regular for content
-        let date_width = self.config.table_width * HEADER_COL1_WIDTH_RATIO; // 40% of width for date
-        let date_x = x + self.config.table_width - date_width - TABLE_MARGIN;
-        let date_y = y + height * ORDER_DATE_RATIO; // Center vertically
+        let date_text_width = self.font_manager.measure_text_accurate(date, self.config.font_size, false);
+        let date_x = x + self.config.table_width - date_text_width - TABLE_MARGIN; // Right-align date text
+        let date_y = y + height * 0.62; // Simple vertical centering
         render_text(
             surface,
             date_x,

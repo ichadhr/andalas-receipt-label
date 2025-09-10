@@ -77,8 +77,15 @@ impl FontManager {
 
     /// Calculate actual text width using glyph advances from skrifa
     pub fn measure_text_accurate(&self, text: &str, font_size: f32, use_bold: bool) -> f32 {
+        self.measure_text_with_font(text, font_size, use_bold, false)
+    }
+
+    /// Calculate text width using specific font type
+    pub fn measure_text_with_font(&self, text: &str, font_size: f32, use_bold: bool, use_brand_font: bool) -> f32 {
         // Use embedded font data directly since we know the font files
-        let font_bytes: &[u8] = if use_bold {
+        let font_bytes: &[u8] = if use_brand_font {
+            load_font_bytes!(brand)
+        } else if use_bold {
             load_font_bytes!(bold)
         } else {
             load_font_bytes!(regular)

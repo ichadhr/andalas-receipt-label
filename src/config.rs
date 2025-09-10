@@ -44,7 +44,6 @@ pub struct Config {
     pub page_width: f32,
     /// Page height in millimeters (default: 150.0)
     pub page_height: f32,
-
     /// Table width in millimeters (default: 96.0)
     pub table_width: f32,
     /// Table height in millimeters (default: 70.5)
@@ -67,6 +66,8 @@ pub struct Config {
     pub qr_size_ratio: f32,
     /// QR code border thickness (default: 2)
     pub qr_border: i32,
+    /// Brand line spacing ratio relative to table height (default: 0.25)
+    pub brand_line_spacing_ratio: f32,
 
     /// Row height ratios [header, qr_content, order_info] (default: [0.4, 0.5, 0.1])
     pub row_height_ratios: [f32; 3],
@@ -89,8 +90,9 @@ impl Default for Config {
             header_col1_width: 22.0,
             font_size: 3.2,
             brand_font_size: 4.5,
-            qr_size_ratio: 0.8,
+            qr_size_ratio: 0.9,
             qr_border: 2,
+            brand_line_spacing_ratio: 0.13,
             row_height_ratios: [0.4, 0.5, 0.1],
             recipient_label: "Penerima:".to_string(),
             debug: false,
@@ -200,7 +202,8 @@ mod tests {
         assert_eq!(config.table_width, 96.0);
         assert_eq!(config.font_size, 3.2);
         assert_eq!(config.brand_font_size, 4.5);
-        assert_eq!(config.qr_size_ratio, 0.8);
+        assert_eq!(config.qr_size_ratio, 0.9);
+        assert_eq!(config.brand_line_spacing_ratio, 0.13);
         assert_eq!(config.row_height_ratios, [0.4, 0.5, 0.1]);
     }
 
