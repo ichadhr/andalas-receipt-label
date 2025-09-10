@@ -70,6 +70,8 @@ pub struct Config {
 
     /// Row height ratios [header, qr_content, order_info] (default: [0.4, 0.5, 0.1])
     pub row_height_ratios: [f32; 3],
+    /// Recipient label text (default: "Penerima:")
+    pub recipient_label: String,
     /// Enable debug mode for additional logging (default: false)
     pub debug: bool,
 }
@@ -90,6 +92,7 @@ impl Default for Config {
             qr_size_ratio: 0.8,
             qr_border: 2,
             row_height_ratios: [0.4, 0.5, 0.1],
+            recipient_label: "Penerima:".to_string(),
             debug: false,
         }
     }
@@ -174,8 +177,8 @@ impl Config {
     /// assert!(header_width > 0.0);
     /// ```
     pub fn calculate_header_col1_width(&self, font_manager: &FontManager) -> f32 {
-        // Calculate the width of "Penerima:" text using bold font
-        let text_width = font_manager.measure_text_accurate("Penerima:", self.font_size, true);
+        // Calculate the width of recipient label text using bold font
+        let text_width = font_manager.measure_text_accurate(&self.recipient_label, self.font_size, true);
 
         // Add padding (left margin + right margin)
         // TABLE_MARGIN is 2.0 mm as defined in table.rs
@@ -231,7 +234,7 @@ mod tests {
         assert!(width < config.table_width);
 
         // Width should be greater than just the text width due to padding
-        let text_width = font_manager.measure_text_accurate("Penerima:", config.font_size, true);
+        let text_width = font_manager.measure_text_accurate(&config.recipient_label, config.font_size, true);
         assert!(width > text_width);
 
         // Debug output
@@ -243,13 +246,14 @@ mod tests {
 
     #[test]
     fn test_calculate_header_col1_width_different_font_sizes() {
-        let mut config = Config::new();
+        let base_config = Config::new();
         let font_manager = FontManager::new().unwrap();
 
         // Test with different font sizes
         let font_sizes = [2.0, 4.0, 6.0, 8.0, 10.0];
 
         for &font_size in &font_sizes {
+            let mut config = base_config.clone();
             config.font_size = font_size;
             let width = config.calculate_header_col1_width(&font_manager);
 
@@ -260,7 +264,8 @@ mod tests {
             // Width should increase with font size
             if font_size > 2.0 {
                 // Compare with previous calculation
-                let prev_config = Config { font_size: font_size - 2.0, ..config };
+                let mut prev_config = base_config.clone();
+                prev_config.font_size = font_size - 2.0;
                 let prev_width = prev_config.calculate_header_col1_width(&font_manager);
                 assert!(width > prev_width, "Width should increase with font size");
             }

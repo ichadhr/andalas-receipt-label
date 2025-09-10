@@ -59,7 +59,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mut label_rows = Vec::new();
 
         // Header row: [name, address, phone]
-        label_rows.push(vec![format!("Penerima: {}", name), address.to_string(), phone.to_string()]);
+        label_rows.push(vec![format!("{} {}", config.recipient_label, name), address.to_string(), phone.to_string()]);
 
         // QR row: [items_text, brand_json_string]
         let items_text = format!("items: T-shirt x1");

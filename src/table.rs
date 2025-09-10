@@ -184,7 +184,7 @@ impl<'a> TableRenderer<'a> {
             surface,
             label_x,
             label_y,
-            "Penerima:",
+            &self.config.recipient_label,
             self.config.font_size,
             self.font_manager,
             false, // Use regular fonts, not brand font

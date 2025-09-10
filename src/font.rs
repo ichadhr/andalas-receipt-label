@@ -2,6 +2,19 @@ use crate::error::{ShipLabelError, ShipLabelResult};
 use krilla::text::Font;
 use skrifa::{FontRef, MetadataProvider, instance::{Size, LocationRef}};
 
+// Macro to load font data - provides single source of truth
+macro_rules! load_font_bytes {
+    (regular) => {
+        include_bytes!("assets/fonts/Roboto/static/Roboto-Regular.ttf")
+    };
+    (bold) => {
+        include_bytes!("assets/fonts/Roboto/static/Roboto-Bold.ttf")
+    };
+    (brand) => {
+        include_bytes!("assets/fonts/Merriweather/static/Merriweather_24pt-Bold.ttf")
+    };
+}
+
 /// Font manager for handling embedded Google Fonts
 #[derive(Debug, Clone)]
 pub struct FontManager {
@@ -17,19 +30,17 @@ impl FontManager {
     /// Create a new FontManager with embedded Google Fonts
     pub fn new() -> ShipLabelResult<Self> {
         // Load Roboto Condensed Light (much lighter weight)
-        let regular_data = include_bytes!("assets/fonts/Roboto/static/Roboto-Regular.ttf");
-        // let regular_data = include_bytes!("assets/fonts/Hevetica/Helvetica.ttf");
+        let regular_data = load_font_bytes!(regular);
         let regular = Font::new(regular_data.to_vec().into(), 0)
             .ok_or_else(|| ShipLabelError::Font("Failed to load Roboto Regular font".to_string()))?;
 
         // Load Roboto Bold
-        let bold_data = include_bytes!("assets/fonts/Roboto/static/Roboto-Bold.ttf");
-        // let bold_data = include_bytes!("assets/fonts/Hevetica/Helvetica-Bold.ttf");
+        let bold_data = load_font_bytes!(bold);
         let bold = Font::new(bold_data.to_vec().into(), 0)
             .ok_or_else(|| ShipLabelError::Font("Failed to load Roboto Bold font".to_string()))?;
 
         // Load Merriweather Bold (brand font)
-        let brand_data = include_bytes!("assets/fonts/Merriweather/static/Merriweather_24pt-Bold.ttf");
+        let brand_data = load_font_bytes!(brand);
         let brand = Font::new(brand_data.to_vec().into(), 0)
             .ok_or_else(|| ShipLabelError::Font("Failed to load Merriweather Bold font".to_string()))?;
 
@@ -68,9 +79,9 @@ impl FontManager {
     pub fn measure_text_accurate(&self, text: &str, font_size: f32, use_bold: bool) -> f32 {
         // Use embedded font data directly since we know the font files
         let font_bytes: &[u8] = if use_bold {
-            include_bytes!("assets/fonts/Roboto/static/Roboto-Bold.ttf")
+            load_font_bytes!(bold)
         } else {
-            include_bytes!("assets/fonts/Roboto/static/Roboto-Regular.ttf")
+            load_font_bytes!(regular)
         };
 
         // Load with skrifa for accurate measurement
@@ -101,7 +112,7 @@ impl FontManager {
     }
 
     /// Fallback text measurement using character approximations
-    fn measure_text_fallback(&self, text: &str, font_size: f32, use_bold: bool) -> f32 {
+    fn measure_text_fallback(&self, text: &str, font_size: f32, _use_bold: bool) -> f32 {
         // Better character width approximations based on Roboto font
         let char_widths = [
             ('P', 0.75), ('e', 0.55), ('n', 0.65), ('r', 0.45), ('i', 0.35),
