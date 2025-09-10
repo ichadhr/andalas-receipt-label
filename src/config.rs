@@ -58,9 +58,9 @@ pub struct Config {
     /// Header column 1 width in millimeters (default: 18.0)
     pub header_col1_width: f32,
 
-    /// Regular font size in points (default: 6.0)
+    /// Regular font size in points (default: 3.2)
     pub font_size: f32,
-    /// Brand font size in points (default: 8.0)
+    /// Brand font size in points (default: 4.5)
     pub brand_font_size: f32,
 
     /// QR code size ratio relative to table height (default: 0.8)
@@ -87,8 +87,8 @@ impl Default for Config {
             margin_top: 2.0,
             margin_side: 2.0,
             header_col1_width: 22.0,
-            font_size: 4.0,
-            brand_font_size: 6.0,
+            font_size: 3.2,
+            brand_font_size: 4.5,
             qr_size_ratio: 0.8,
             qr_border: 2,
             row_height_ratios: [0.4, 0.5, 0.1],
@@ -198,8 +198,8 @@ mod tests {
         assert_eq!(config.page_width, 100.0);
         assert_eq!(config.page_height, 150.0);
         assert_eq!(config.table_width, 96.0);
-        assert_eq!(config.font_size, 4.0);
-        assert_eq!(config.brand_font_size, 6.0);
+        assert_eq!(config.font_size, 3.2);
+        assert_eq!(config.brand_font_size, 4.5);
         assert_eq!(config.qr_size_ratio, 0.8);
         assert_eq!(config.row_height_ratios, [0.4, 0.5, 0.1]);
     }

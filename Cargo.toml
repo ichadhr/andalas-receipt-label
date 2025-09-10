@@ -16,7 +16,3 @@ usvg = "0.45.1"
 
 [dev-dependencies]
 proptest = "1.7.0"
-
-[[bin]]
-name = "main_minimal"
-path = "src/main_minimal.rs"

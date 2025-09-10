@@ -24,10 +24,6 @@ const QR_SIZE_RATIO: f32 = 0.8; // QR size relative to row height
 const BRAND_FIRST_LINE_RATIO: f32 = 0.3; // Position of first brand line
 const BRAND_SUBSEQUENT_RATIO: f32 = 0.55; // Position of subsequent brand lines
 const BRAND_LINE_SPACING_RATIO: f32 = 0.25; // Spacing between brand lines
-const HEADER_LABEL_RATIO: f32 = 0.3; // Position of "Penerima:" label
-const HEADER_NAME_RATIO: f32 = 0.25; // Position of name
-const HEADER_ADDRESS_RATIO: f32 = 0.55; // Position of address
-const HEADER_PHONE_RATIO: f32 = 0.8; // Position of phone
 const ORDER_ID_RATIO: f32 = 0.5; // Center order ID vertically
 const ORDER_DATE_RATIO: f32 = 0.5; // Center date vertically
 const TABLE_BORDER_WIDTH: f32 = 0.4;
@@ -74,7 +70,7 @@ impl<'a> TableRenderer<'a> {
         let mut current_y = y;
         for (i, row) in rows.iter().enumerate() {
             let row_height = row_heights[i];
-            self.render_row(surface, x, current_y, row_height, row)?;
+            self.render_row(surface, x, current_y, row_height, row, y)?;
             current_y += row_height;
         }
 
@@ -106,11 +102,12 @@ impl<'a> TableRenderer<'a> {
             path_builder.line_to(x + width, current_y);
         }
 
-        // Draw vertical line for header column (at end of Penerima: column)
-        let header_col_width = self.config.calculate_header_col1_width(self.font_manager);
-        let vertical_line_x = x + header_col_width; // Vertical line at end of header column
-        path_builder.move_to(vertical_line_x, y);
-        path_builder.line_to(vertical_line_x, y + row_heights[0]);
+        // Keep column width calculation for positioning, but don't draw the vertical line
+        let _header_col_width = self.config.calculate_header_col1_width(self.font_manager);
+        // Vertical line removed - no visual separation between label and content columns
+        // let vertical_line_x = x + header_col_width;
+        // path_builder.move_to(vertical_line_x, y);
+        // path_builder.line_to(vertical_line_x, y + row_heights[0]);
 
         // Create path and stroke it
         if let Some(path) = path_builder.finish() {
@@ -140,9 +137,10 @@ impl<'a> TableRenderer<'a> {
         y: f32,
         height: f32,
         row: &RowType,
+        table_top_y: f32, // Add table top coordinate
     ) -> ShipLabelResult<()> {
         match row {
-            RowType::Header(fields) => self.render_header_row(surface, x, y, height, fields),
+            RowType::Header(fields) => self.render_header_row(surface, x, y, height, fields, table_top_y),
             RowType::QrContent(qr_data, brand_lines) => {
                 self.render_qr_content_row(surface, x, y, height, qr_data, brand_lines)
             }
@@ -158,14 +156,15 @@ impl<'a> TableRenderer<'a> {
         surface: &mut Surface,
         x: f32,
         y: f32,
-        height: f32,
+        _height: f32,
         fields: &[String],
+        _table_top_y: f32,
     ) -> ShipLabelResult<()> {
         if fields.is_empty() {
             return Ok(());
         }
 
-        let header_col_width = self.config.calculate_header_col1_width(self.font_manager);
+        let _header_col_width = self.config.calculate_header_col1_width(self.font_manager);
 
         // OPTIMIZATION: Set fill once at the beginning, not before each text render
         let black_fill = krilla::paint::Fill {
@@ -177,8 +176,8 @@ impl<'a> TableRenderer<'a> {
 
         // Render "Penerima:" label positioned near the vertical stroke
         // Position it so it ends before the vertical line (which is at header_col_width)
-        let label_x = x + TABLE_MARGIN; // Start with normal margin
-        let label_y = y + height * HEADER_LABEL_RATIO;
+        let label_x = x + TABLE_BORDER_WIDTH + TABLE_MARGIN + 1.0; // Account for border width + margin + extra clearance
+        let label_y = y + TABLE_BORDER_WIDTH + TABLE_MARGIN + 2.0 + 1.0; // Add extra clearance for font ascent + additional margin
 
         render_text(
             surface,
@@ -188,13 +187,14 @@ impl<'a> TableRenderer<'a> {
             self.config.font_size,
             self.font_manager,
             false, // Use regular fonts, not brand font
-            true,  // Use bold font for labels
+            false,  // Use bold font for labels
         )?;
 
-        // Render recipient info in second column (after vertical line)
-        let vertical_line_x = x + header_col_width;
-        let content_x = vertical_line_x + TABLE_MARGIN; // Start content after vertical line
-        let content_width = self.config.table_width - vertical_line_x - 2.0 * TABLE_MARGIN;
+        // Render recipient info positioned after the label (no vertical line separator)
+        // Use the calculated label width plus some spacing for content positioning
+        let label_text_width = self.font_manager.measure_text_accurate(&self.config.recipient_label, self.config.font_size, true);
+        let content_x = x + TABLE_MARGIN + label_text_width + TABLE_MARGIN * 2.0; // Label + margin + spacing
+        let content_width = self.config.table_width - content_x - (TABLE_BORDER_WIDTH + TABLE_MARGIN + 1.0);
 
         if fields.len() >= 3 {
             // Debug output
@@ -206,7 +206,8 @@ impl<'a> TableRenderer<'a> {
             }
 
             // Name (first line) - use bold for names like main_minimal.rs
-            let name_y = y + height * HEADER_NAME_RATIO;
+            let _name_x = content_x; // Use the same x position as content
+            let name_y = y + TABLE_BORDER_WIDTH + TABLE_MARGIN + 2.0 + 1.0; // Position relative to current row, same margin as left + extra clearance
             render_text(
                 surface,
                 content_x,
@@ -218,25 +219,34 @@ impl<'a> TableRenderer<'a> {
                 true,  // Use bold font for names
             )?;
 
-            // Address (second line) - keep regular for content
-            let address_y = y + height * HEADER_ADDRESS_RATIO;
+            // Address (second line) - keep regular for content with text wrapping
+            let address_y = name_y + self.config.font_size * 1.2 + 0.3; // Natural line spacing + additional 0.3mm gap
             if self.config.debug {
                 println!("DEBUG: Address position: x={}, y={}", content_x, address_y);
-                println!("DEBUG: Address text length: {}", fields[1].len());
+                println!("DEBUG: Address text: {}", fields[1]);
+                println!("DEBUG: Available width: {}mm", content_width);
             }
-            render_text(
-                surface,
-                content_x,
-                address_y,
-                &fields[1],
-                self.config.font_size,
-                self.font_manager,
-                false, // Use regular fonts, not brand font
-                false, // Use regular font for content
-            )?;
+
+            // Wrap address text if it's too long
+            let wrapped_address_lines = self.wrap_text(&fields[1], content_width, self.config.font_size, self.font_manager, false);
+            let mut current_address_y = address_y;
+
+            for line in &wrapped_address_lines {
+                render_text(
+                    surface,
+                    content_x,
+                    current_address_y,
+                    line,
+                    self.config.font_size,
+                    self.font_manager,
+                    false, // Use regular fonts, not brand font
+                    false, // Use regular font for content
+                )?;
+                current_address_y += self.config.font_size * 1.2 + 0.3; // Move to next line with additional gap
+            }
 
             // Phone (third line) - keep regular for content
-            let phone_y = y + height * HEADER_PHONE_RATIO;
+            let phone_y = current_address_y; // Position after all address lines
             render_text(
                 surface,
                 content_x,
@@ -245,7 +255,7 @@ impl<'a> TableRenderer<'a> {
                 self.config.font_size,
                 self.font_manager,
                 false, // Use regular fonts, not brand font
-                false, // Use regular font for content
+                true, // Use regular font for content
             )?;
         }
 
@@ -319,6 +329,43 @@ impl<'a> TableRenderer<'a> {
         }
 
         Ok(())
+    }
+
+    /// Wrap text to fit within specified width
+    fn wrap_text(&self, text: &str, max_width: f32, font_size: f32, font_manager: &FontManager, use_bold: bool) -> Vec<String> {
+        let words: Vec<&str> = text.split_whitespace().collect();
+        let mut lines = Vec::new();
+        let mut current_line = String::new();
+
+        for word in words {
+            let test_line = if current_line.is_empty() {
+                word.to_string()
+            } else {
+                format!("{} {}", current_line, word)
+            };
+
+            let line_width = font_manager.measure_text_accurate(&test_line, font_size, use_bold);
+
+            if line_width <= max_width {
+                current_line = test_line;
+            } else {
+                if !current_line.is_empty() {
+                    lines.push(current_line);
+                }
+                current_line = word.to_string();
+            }
+        }
+
+        if !current_line.is_empty() {
+            lines.push(current_line);
+        }
+
+        // If no wrapping occurred (single line), return original text
+        if lines.len() == 1 && lines[0] == text {
+            vec![text.to_string()]
+        } else {
+            lines
+        }
     }
 
     /// Render order info row (order ID + date) - OPTIMIZED VERSION
