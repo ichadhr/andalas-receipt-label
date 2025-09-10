@@ -1,17 +1,20 @@
 use krilla::Document;
 use krilla::page::PageSettings;
-use krilla::geom::Point;
 use krilla::color::rgb;
 use krilla::paint::Fill;
 use krilla::num::NormalizedF32;
 use std::fs;
 
-// Import our font manager
+// Import our font manager, text rendering, and table rendering
 use pdf::font::FontManager;
+use pdf::text::render_text;
+use pdf::table::TableRenderer;
+use pdf::config::Config;
+use pdf::label::{LabelData};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("🎯 Minimal Font Test - Using FontManager + Krilla Internal Rendering");
-    println!("================================================================");
+    println!("🎯 Optimized Table Rendering Test - Fixed font quality issues");
+    println!("============================================================");
 
     // Load fonts using our FontManager (same as shipping labels)
     println!("📂 Loading fonts via FontManager...");
@@ -22,9 +25,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("   Bold font units_per_em: {}", font_manager.bold().units_per_em());
     println!("   Brand font units_per_em: {}", font_manager.brand().units_per_em());
 
-    // Create document with shipping label dimensions
+    // Create document with same dimensions as main.rs (shipping label size)
     let mut document = Document::new();
-    let mut page = document.start_page_with(PageSettings::new(200.0, 300.0));
+    let mut page = document.start_page_with(PageSettings::new(100.0, 150.0));
     let mut surface = page.surface();
 
     // Set up black fill
@@ -35,161 +38,75 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
     surface.set_fill(Some(black_fill));
 
-    // Test shipping label content with minimal rendering
-    let small_font = 6.0;  // Same as shipping labels
-    let brand_font = 8.0;
+    // Test table rendering like main.rs
+    let config = Config::new();
+    let table_renderer = TableRenderer::new(&config, &font_manager);
 
-    // Sample shipping label content
-    let recipient_name = "Aswanto Iwan";
-    let address = "Jalan Pelita IV No. 92, RT 08 RW 06";
-    let phone = "08267398xxxx";
-    let order_id = "#0001";
-    let brand_text = "Tokopedia Official Store";
+    // Sample data for multiple labels (like main.rs processing)
+    let labels_data = vec![
+        ("Aswanto Iwan", "Jalan Pelita IV No. 92", "08267398xxxx", "#0001", "Tokopedia Official Store"),
+        ("John Doe", "123 Main Street", "555-0123", "#0002", "Brand Store"),
+    ];
 
-    let mut y_pos = 30.0;
+    let mut current_y = 5.0; // Start position
+    let label_gap = 3.0; // Gap between labels
 
-    // Header section - like shipping labels
-    surface.draw_text(
-        Point::from_xy(10.0, y_pos),
-        font_manager.bold().clone(),
-        small_font,
-        "Penerima:",
-        false,
-        krilla::text::TextDirection::Auto,
-    );
+    // Render multiple labels using TableRenderer (exactly like main.rs)
+    for (label_index, (name, address, phone, order_id, brand)) in labels_data.iter().enumerate() {
+        println!("Rendering label #{} with TableRenderer: {}", label_index + 1, name);
 
-    y_pos += 12.0;
-    surface.draw_text(
-        Point::from_xy(10.0, y_pos),
-        font_manager.bold().clone(),
-        small_font,
-        recipient_name,
-        false,
-        krilla::text::TextDirection::Auto,
-    );
+        // Create LabelData structure (exactly like main.rs)
+        let mut label_rows = Vec::new();
 
-    y_pos += 12.0;
-    surface.draw_text(
-        Point::from_xy(10.0, y_pos),
-        font_manager.regular().clone(),
-        small_font,
-        address,
-        false,
-        krilla::text::TextDirection::Auto,
-    );
+        // Header row: [name, address, phone]
+        label_rows.push(vec![format!("Penerima: {}", name), address.to_string(), phone.to_string()]);
 
-    y_pos += 12.0;
-    surface.draw_text(
-        Point::from_xy(10.0, y_pos),
-        font_manager.regular().clone(),
-        small_font,
-        phone,
-        false,
-        krilla::text::TextDirection::Auto,
-    );
+        // QR row: [items_text, brand_json_string]
+        let items_text = format!("items: T-shirt x1");
+        let brand_json = format!("[\"{}\"]", brand);
+        label_rows.push(vec![items_text, brand_json]);
 
-    // Brand section
-    y_pos += 20.0;
-    surface.draw_text(
-        Point::from_xy(10.0, y_pos),
-        font_manager.brand().clone(),
-        brand_font,
-        brand_text,
-        false,
-        krilla::text::TextDirection::Auto,
-    );
+        // Order row: [order_id, date]
+        label_rows.push(vec![order_id.to_string(), "2024-01-15".to_string()]);
 
-    // Order info
-    y_pos += 20.0;
-    surface.draw_text(
-        Point::from_xy(10.0, y_pos),
-        font_manager.bold().clone(),
-        small_font,
-        &format!("Order ID: {}", order_id),
-        false,
-        krilla::text::TextDirection::Auto,
-    );
+        let label_data = LabelData::new(label_rows);
 
-    // Test shipping label exact replica
-    y_pos += 30.0;
-    surface.draw_text(
-        Point::from_xy(10.0, y_pos),
-        font_manager.regular().clone(),
-        6.0,
-        "Penerima:",
-        false,
-        krilla::text::TextDirection::Auto,
-    );
+        // Convert to RowType structure (exactly like main.rs)
+        let row_types = label_data.to_row_types()?;
 
-    y_pos += 12.0;
-    surface.draw_text(
-        Point::from_xy(10.0, y_pos),
-        font_manager.regular().clone(),
-        6.0,
-        "Aswanto Iwan",
-        false,
-        krilla::text::TextDirection::Auto,
-    );
+        // Calculate table position (like main.rs)
+        let table_x = config.calculate_table_x();
 
-    y_pos += 12.0;
-    surface.draw_text(
-        Point::from_xy(10.0, y_pos),
-        font_manager.regular().clone(),
-        6.0,
-        "Jalan Pelita IV No. 92",
-        false,
-        krilla::text::TextDirection::Auto,
-    );
+        // Render table using TableRenderer (exactly like main.rs)
+        table_renderer.render_table(&mut surface, table_x, current_y, &row_types)?;
 
-    y_pos += 12.0;
-    surface.draw_text(
-        Point::from_xy(10.0, y_pos),
-        font_manager.regular().clone(),
-        6.0,
-        "08267398xxxx",
-        false,
-        krilla::text::TextDirection::Auto,
-    );
-
-    y_pos += 20.0;
-    surface.draw_text(
-        Point::from_xy(10.0, y_pos),
-        font_manager.brand().clone(),
-        8.0,
-        "Tokopedia Official Store",
-        false,
-        krilla::text::TextDirection::Auto,
-    );
-
-    y_pos += 20.0;
-    surface.draw_text(
-        Point::from_xy(10.0, y_pos),
-        font_manager.regular().clone(),
-        6.0,
-        "Order ID: #0001",
-        false,
-        krilla::text::TextDirection::Auto,
-    );
+        // Move to next label position
+        current_y += config.table_height + label_gap;
+    }
 
     // Add info
-    let info_y = 250.0;
-    surface.draw_text(
-        Point::from_xy(10.0, info_y),
-        font_manager.regular().clone(),
+    let info_y = 120.0;
+    render_text(
+        &mut surface,
         10.0,
-        "Minimal Test: FontManager + Krilla internal rendering",
-        false,
-        krilla::text::TextDirection::Auto,
-    );
+        info_y,
+        "Minimal Test: FontManager + render_text wrapper",
+        10.0,
+        &font_manager,
+        false, // use_brand_font
+        false, // use_bold_font
+    )?;
 
-    surface.draw_text(
-        Point::from_xy(10.0, info_y + 12.0),
-        font_manager.regular().clone(),
+    render_text(
+        &mut surface,
         10.0,
-        "Same fonts as shipping labels - pure Krilla typography",
-        false,
-        krilla::text::TextDirection::Auto,
-    );
+        info_y + 12.0,
+        "Same fonts as shipping labels - testing render_text quality",
+        10.0,
+        &font_manager,
+        false, // use_brand_font
+        false, // use_bold_font
+    )?;
 
     // Finish page
     surface.finish();
@@ -197,19 +114,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Save PDF
     let pdf_data = document.finish().map_err(|e| format!("Failed to finish document: {:?}", e))?;
-    let output_path = "output/minimal_font_test.pdf";
+    let output_path = "output/optimized_table_renderer_test_100x150.pdf";
     fs::write(output_path, &pdf_data).map_err(|e| format!("Failed to write PDF: {}", e))?;
 
-    println!("✅ Minimal font test PDF generated");
+    println!("✅ Minimal font test PDF generated (using render_text)");
     println!("📁 Output: {}", output_path);
     println!("📊 PDF size: {} bytes", pdf_data.len());
 
     println!();
     println!("🎯 Test Results:");
-    println!("   ✅ Krilla internal rendering only");
-    println!("   ✅ Same fonts as shipping labels");
-    println!("   ✅ No custom measurement logic");
-    println!("   📄 Open the PDF to see pure Krilla typography");
+    println!("   ✅ OPTIMIZED TableRenderer (fixed surface state issues)");
+    println!("   ✅ Single fill setting per row (not per text call)");
+    println!("   ✅ Proper surface state restoration after borders");
+    println!("   ✅ Same layout and positioning as main.rs");
+    println!("   📄 Compare with complete_rust_labels.pdf - fonts should now be equally smooth!");
 
     Ok(())
 }

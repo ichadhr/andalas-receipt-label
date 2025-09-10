@@ -83,9 +83,9 @@ impl Default for Config {
             table_gap: 4.5,
             margin_top: 2.0,
             margin_side: 2.0,
-            header_col1_width: 18.0,
-            font_size: 6.0,
-            brand_font_size: 8.0,
+            header_col1_width: 22.0,
+            font_size: 4.0,
+            brand_font_size: 6.0,
             qr_size_ratio: 0.8,
             qr_border: 2,
             row_height_ratios: [0.4, 0.5, 0.1],
@@ -162,8 +162,8 @@ mod tests {
         assert_eq!(config.page_width, 100.0);
         assert_eq!(config.page_height, 150.0);
         assert_eq!(config.table_width, 96.0);
-        assert_eq!(config.font_size, 6.0);
-        assert_eq!(config.brand_font_size, 8.0);
+        assert_eq!(config.font_size, 1.0);
+        assert_eq!(config.brand_font_size, 2.0);
         assert_eq!(config.qr_size_ratio, 0.8);
         assert_eq!(config.row_height_ratios, [0.4, 0.5, 0.1]);
     }

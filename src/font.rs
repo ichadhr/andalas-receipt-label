@@ -16,14 +16,14 @@ impl FontManager {
     /// Create a new FontManager with embedded Google Fonts
     pub fn new() -> ShipLabelResult<Self> {
         // Load Roboto Condensed Light (much lighter weight)
-        // let regular_data = include_bytes!("assets/fonts/Roboto/static/Roboto-Thin.ttf");
-        let regular_data = include_bytes!("assets/fonts/Hevetica/Helvetica.ttf");
+        let regular_data = include_bytes!("assets/fonts/Roboto/static/Roboto-Regular.ttf");
+        // let regular_data = include_bytes!("assets/fonts/Hevetica/Helvetica.ttf");
         let regular = Font::new(regular_data.to_vec().into(), 0)
             .ok_or_else(|| ShipLabelError::Font("Failed to load Roboto Regular font".to_string()))?;
 
         // Load Roboto Bold
-        // let bold_data = include_bytes!("assets/fonts/Roboto/static/Roboto-Regular.ttf");
-        let bold_data = include_bytes!("assets/fonts/Hevetica/Helvetica-Bold.ttf");
+        let bold_data = include_bytes!("assets/fonts/Roboto/static/Roboto-Bold.ttf");
+        // let bold_data = include_bytes!("assets/fonts/Hevetica/Helvetica-Bold.ttf");
         let bold = Font::new(bold_data.to_vec().into(), 0)
             .ok_or_else(|| ShipLabelError::Font("Failed to load Roboto Bold font".to_string()))?;
 

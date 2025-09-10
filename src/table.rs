@@ -81,7 +81,7 @@ impl<'a> TableRenderer<'a> {
         Ok(())
     }
 
-    /// Draw table borders using PathBuilder
+    /// Draw table borders using PathBuilder - OPTIMIZED VERSION
     fn draw_table_borders(&self, surface: &mut Surface, x: f32, y: f32) -> ShipLabelResult<()> {
         let mut path_builder = PathBuilder::new();
 
@@ -106,17 +106,16 @@ impl<'a> TableRenderer<'a> {
             path_builder.line_to(x + width, current_y);
         }
 
-        // Draw vertical line for header column
+        // Draw vertical line for header column (at end of Penerima: column)
         let header_col_width = self.config.header_col1_width;
-        path_builder.move_to(x + header_col_width, y);
-        path_builder.line_to(x + header_col_width, y + row_heights[0]);
+        let vertical_line_x = x + header_col_width; // Vertical line at end of header column
+        path_builder.move_to(vertical_line_x, y);
+        path_builder.line_to(vertical_line_x, y + row_heights[0]);
 
         // Create path and stroke it
         if let Some(path) = path_builder.finish() {
-            // Ensure no fill for borders (only stroke)
+            // Set border drawing state
             surface.set_fill(None);
-
-            // Set black stroke for borders
             let stroke = Stroke {
                 paint: krilla::color::rgb::Color::black().into(),
                 width: TABLE_BORDER_WIDTH,
@@ -124,6 +123,10 @@ impl<'a> TableRenderer<'a> {
             };
             surface.set_stroke(Some(stroke));
             surface.draw_path(&path);
+
+            // OPTIMIZATION: Reset to default state for text rendering
+            surface.set_stroke(None);
+            // Note: Fill will be set by render_header_row, so we don't set it here
         }
 
         Ok(())
@@ -149,7 +152,7 @@ impl<'a> TableRenderer<'a> {
         }
     }
 
-    /// Render header row (recipient information)
+    /// Render header row (recipient information) - OPTIMIZED VERSION
     fn render_header_row(
         &self,
         surface: &mut Surface,
@@ -164,17 +167,18 @@ impl<'a> TableRenderer<'a> {
 
         let header_col_width = self.config.header_col1_width;
 
-        // Render "Penerima:" label in first column
-        let label_x = x + TABLE_MARGIN;
-        let label_y = y + height * HEADER_LABEL_RATIO;
-
-        // Ensure fill is set for text rendering
+        // OPTIMIZATION: Set fill once at the beginning, not before each text render
         let black_fill = krilla::paint::Fill {
             paint: krilla::color::rgb::Color::black().into(),
             opacity: krilla::num::NormalizedF32::ONE,
             rule: Default::default(),
         };
         surface.set_fill(Some(black_fill));
+
+        // Render "Penerima:" label positioned near the vertical stroke
+        // Position it so it ends before the vertical line (which is at header_col_width)
+        let label_x = x + TABLE_MARGIN; // Start with normal margin
+        let label_y = y + height * HEADER_LABEL_RATIO;
 
         render_text(
             surface,
@@ -187,9 +191,10 @@ impl<'a> TableRenderer<'a> {
             true,  // Use bold font for labels
         )?;
 
-        // Render recipient info in second column
-        let content_x = x + header_col_width + TABLE_MARGIN;
-        let content_width = self.config.table_width - header_col_width - 2.0 * TABLE_MARGIN;
+        // Render recipient info in second column (after vertical line)
+        let vertical_line_x = x + header_col_width;
+        let content_x = vertical_line_x + TABLE_MARGIN; // Start content after vertical line
+        let content_width = self.config.table_width - vertical_line_x - 2.0 * TABLE_MARGIN;
 
         if fields.len() >= 3 {
             // Debug output
@@ -247,7 +252,7 @@ impl<'a> TableRenderer<'a> {
         Ok(())
     }
 
-    /// Render QR content row (QR code + brand information)
+    /// Render QR content row (QR code + brand information) - OPTIMIZED VERSION
     fn render_qr_content_row(
         &self,
         surface: &mut Surface,
@@ -257,6 +262,14 @@ impl<'a> TableRenderer<'a> {
         qr_data: &str,
         brand_lines: &[String],
     ) -> ShipLabelResult<()> {
+        // OPTIMIZATION: Set fill once for all text rendering in this row
+        let black_fill = krilla::paint::Fill {
+            paint: krilla::color::rgb::Color::black().into(),
+            opacity: krilla::num::NormalizedF32::ONE,
+            rule: Default::default(),
+        };
+        surface.set_fill(Some(black_fill));
+
         // Left side: QR code
         let qr_size = height * QR_SIZE_RATIO;
         let qr_x = x + TABLE_MARGIN;
@@ -308,7 +321,7 @@ impl<'a> TableRenderer<'a> {
         Ok(())
     }
 
-    /// Render order info row (order ID + date)
+    /// Render order info row (order ID + date) - OPTIMIZED VERSION
     fn render_order_info_row(
         &self,
         surface: &mut Surface,
@@ -318,6 +331,14 @@ impl<'a> TableRenderer<'a> {
         order_id: &str,
         date: &str,
     ) -> ShipLabelResult<()> {
+        // OPTIMIZATION: Set fill once for all text rendering in this row
+        let black_fill = krilla::paint::Fill {
+            paint: krilla::color::rgb::Color::black().into(),
+            opacity: krilla::num::NormalizedF32::ONE,
+            rule: Default::default(),
+        };
+        surface.set_fill(Some(black_fill));
+
         // Left side: Order ID - use bold like main_minimal.rs
         let order_x = x + TABLE_MARGIN;
         let order_y = y + height * ORDER_ID_RATIO; // Center vertically
