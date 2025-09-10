@@ -143,7 +143,15 @@ impl FontManager {
 
 impl Default for FontManager {
     fn default() -> Self {
-        Self::new().expect("Failed to load default fonts")
+        match Self::new() {
+            Ok(font_manager) => font_manager,
+            Err(e) => {
+                eprintln!("CRITICAL ERROR: Failed to load embedded fonts: {}", e);
+                eprintln!("This usually indicates corrupted or missing font files in assets/fonts/");
+                eprintln!("Please ensure all font files are present and readable.");
+                panic!("Font loading failed - cannot continue without fonts");
+            }
+        }
     }
 }
 
@@ -153,21 +161,20 @@ mod tests {
 
     #[test]
     fn test_font_manager_creation() {
-        let _font_manager = FontManager::new().unwrap();
-        // Verify fonts are loaded (we can't test much more without krilla internals)
-        assert!(true); // If we get here, fonts loaded successfully
+        let font_manager = FontManager::new();
+        assert!(font_manager.is_ok(), "FontManager creation should succeed: {:?}", font_manager.err());
     }
 
     #[test]
     fn test_font_manager_default() {
         let _font_manager = FontManager::default();
-        // Should not panic
+        // Should not panic - if we get here, it worked
         assert!(true);
     }
 
     #[test]
     fn test_font_accessors() {
-        let font_manager = FontManager::new().unwrap();
+        let font_manager = FontManager::new().expect("FontManager should be created successfully");
 
         // Test that we can access all fonts
         let _regular = font_manager.regular();

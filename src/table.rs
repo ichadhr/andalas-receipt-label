@@ -16,10 +16,7 @@ use krilla::geom::PathBuilder;
 use krilla::paint::Stroke;
 use krilla::surface::Surface;
 
-// Table rendering constants
-const TABLE_MARGIN: f32 = 2.0;
-const QR_VERTICAL_CENTER_RATIO: f32 = 0.5; // Center QR vertically
-const TABLE_BORDER_WIDTH: f32 = 0.35;
+// Table rendering constants - now sourced from config.layout
 
 /// Table renderer for shipping labels
 pub struct TableRenderer<'a> {
@@ -85,6 +82,14 @@ impl<'a> TableRenderer<'a> {
         path_builder.line_to(x, y + height);
         path_builder.close();
 
+        // Create stroke with configurable border width
+        let stroke = Stroke {
+            paint: krilla::color::rgb::Color::black().into(),
+            width: self.config.layout.table_border_width,
+            ..Default::default()
+        };
+        surface.set_stroke(Some(stroke));
+
         // Draw horizontal lines between rows
         let row_heights = self.config.calculate_row_heights();
         let mut current_y = y;
@@ -106,12 +111,11 @@ impl<'a> TableRenderer<'a> {
         if let Some(path) = path_builder.finish() {
             // Set border drawing state
             surface.set_fill(None);
-            let stroke = Stroke {
+            surface.set_stroke(Some(Stroke {
                 paint: krilla::color::rgb::Color::black().into(),
-                width: TABLE_BORDER_WIDTH,
+                width: self.config.layout.table_border_width,
                 ..Default::default()
-            };
-            surface.set_stroke(Some(stroke));
+            }));
             surface.draw_path(&path);
 
             // OPTIMIZATION: Reset to default state for text rendering
@@ -169,8 +173,8 @@ impl<'a> TableRenderer<'a> {
 
         // Render "Penerima:" label positioned near the vertical stroke
         // Position it so it ends before the vertical line (which is at header_col_width)
-        let label_x = x + TABLE_BORDER_WIDTH + TABLE_MARGIN + 1.0; // Account for border width + margin + extra clearance
-        let label_y = y + TABLE_BORDER_WIDTH + TABLE_MARGIN + 2.0 + 1.0; // Add extra clearance for font ascent + additional margin
+        let label_x = x + self.config.layout.table_border_width + self.config.layout.table_margin + self.config.layout.label_extra_clearance;
+        let label_y = y + self.config.layout.table_border_width + self.config.layout.table_margin + 2.0 + self.config.layout.label_extra_clearance;
 
         render_text(
             surface,
@@ -186,8 +190,8 @@ impl<'a> TableRenderer<'a> {
         // Render recipient info positioned after the label (no vertical line separator)
         // Use the calculated label width plus some spacing for content positioning
         let label_text_width = self.font_manager.measure_text_accurate(&self.config.recipient_label, self.config.font_size, true);
-        let content_x = x + TABLE_MARGIN + label_text_width + TABLE_MARGIN * 2.0; // Label + margin + spacing
-        let content_width = self.config.table_width - content_x - (TABLE_BORDER_WIDTH + TABLE_MARGIN + 1.0);
+        let content_x = x + self.config.layout.table_margin + label_text_width + self.config.layout.table_margin * self.config.layout.content_spacing_multiplier;
+        let content_width = self.config.table_width - content_x - (self.config.layout.table_border_width + self.config.layout.table_margin + self.config.layout.label_extra_clearance);
 
         if fields.len() >= 3 {
             // Debug output
@@ -200,7 +204,7 @@ impl<'a> TableRenderer<'a> {
 
             // Name (first line) - use bold for names like main_minimal.rs
             let _name_x = content_x; // Use the same x position as content
-            let name_y = y + TABLE_BORDER_WIDTH + TABLE_MARGIN + 2.0 + 1.0; // Position relative to current row, same margin as left + extra clearance
+            let name_y = y + self.config.layout.table_border_width + self.config.layout.table_margin + 2.0 + self.config.layout.label_extra_clearance;
             render_text(
                 surface,
                 content_x,
@@ -275,16 +279,16 @@ impl<'a> TableRenderer<'a> {
 
         // Left side: QR code
         let qr_size = height * self.config.qr_size_ratio;
-        let qr_x = x + TABLE_MARGIN;
-        let qr_y = y + (height - qr_size) * QR_VERTICAL_CENTER_RATIO; // Center vertically
+        let qr_x = x + self.config.layout.table_margin;
+        let qr_y = y + (height - qr_size) * self.config.layout.qr_vertical_center_ratio; // Center vertically
 
         // Generate and embed QR code
         let qr_svg = generate_qr_svg(qr_data)?;
         embed_qr_svg(surface, &qr_svg, qr_x, qr_y, qr_size)?;
 
         // Right side: Brand information
-        let brand_start_x = x + qr_size + 2.0 * TABLE_MARGIN;
-        let brand_width = self.config.table_width - qr_size - 3.0 * TABLE_MARGIN;
+        let brand_start_x = x + qr_size + self.config.layout.brand_start_multiplier * self.config.layout.table_margin;
+        let brand_width = self.config.table_width - qr_size - self.config.layout.brand_width_reduction * self.config.layout.table_margin;
         let brand_center_x = brand_start_x + (brand_width / 2.0);
 
         if !brand_lines.is_empty() {
@@ -403,8 +407,8 @@ impl<'a> TableRenderer<'a> {
         surface.set_fill(Some(black_fill));
 
         // Left side: Order ID - use bold like main_minimal.rs
-        let order_x = x + TABLE_MARGIN;
-        let order_y = y + height * 0.62; // Simple vertical centering
+        let order_x = x + self.config.layout.table_margin;
+        let order_y = y + height * self.config.layout.order_vertical_position;
         render_text(
             surface,
             order_x,
@@ -418,8 +422,8 @@ impl<'a> TableRenderer<'a> {
 
         // Right side: Date (right-aligned) - keep regular for content
         let date_text_width = self.font_manager.measure_text_accurate(date, self.config.font_size, false);
-        let date_x = x + self.config.table_width - date_text_width - TABLE_MARGIN; // Right-align date text
-        let date_y = y + height * 0.62; // Simple vertical centering
+        let date_x = x + self.config.table_width - date_text_width - self.config.layout.table_margin; // Right-align date text
+        let date_y = y + height * self.config.layout.order_vertical_position;
         render_text(
             surface,
             date_x,

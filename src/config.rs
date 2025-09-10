@@ -1,6 +1,49 @@
 use serde::{Deserialize, Serialize};
 use crate::font::FontManager;
 
+/// Layout configuration for table rendering and positioning
+/// Contains all the magic numbers and layout constants used throughout the rendering pipeline
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LayoutConfig {
+    /// Table margin in millimeters (default: 2.0)
+    pub table_margin: f32,
+    /// Table border width in millimeters (default: 0.35)
+    pub table_border_width: f32,
+    /// QR code vertical centering ratio (default: 0.5)
+    pub qr_vertical_center_ratio: f32,
+    /// Label extra clearance in millimeters (default: 1.0)
+    pub label_extra_clearance: f32,
+    /// Content spacing multiplier (default: 2.0)
+    pub content_spacing_multiplier: f32,
+    /// Line spacing ratio relative to font size (default: 1.2)
+    pub line_spacing_ratio: f32,
+    /// Line spacing extra gap in millimeters (default: 0.3)
+    pub line_spacing_extra: f32,
+    /// Brand start position multiplier (default: 2.0)
+    pub brand_start_multiplier: f32,
+    /// Brand width reduction factor (default: 3.0)
+    pub brand_width_reduction: f32,
+    /// Order info vertical position ratio (default: 0.62)
+    pub order_vertical_position: f32,
+}
+
+impl Default for LayoutConfig {
+    fn default() -> Self {
+        Self {
+            table_margin: 2.0,
+            table_border_width: 0.35,
+            qr_vertical_center_ratio: 0.5,
+            label_extra_clearance: 1.0,
+            content_spacing_multiplier: 2.0,
+            line_spacing_ratio: 1.2,
+            line_spacing_extra: 0.3,
+            brand_start_multiplier: 2.0,
+            brand_width_reduction: 3.0,
+            order_vertical_position: 0.62,
+        }
+    }
+}
+
 /// Main configuration structure for ShipLabel PDF generation
 ///
 /// Config provides type-safe configuration for all aspects of shipping label generation
@@ -73,6 +116,8 @@ pub struct Config {
     pub row_height_ratios: [f32; 3],
     /// Recipient label text (default: "Penerima:")
     pub recipient_label: String,
+    /// Layout configuration with positioning and spacing constants
+    pub layout: LayoutConfig,
     /// Enable debug mode for additional logging (default: false)
     pub debug: bool,
 }
@@ -95,6 +140,7 @@ impl Default for Config {
             brand_line_spacing_ratio: 0.13,
             row_height_ratios: [0.4, 0.5, 0.1],
             recipient_label: "Penerima:".to_string(),
+            layout: LayoutConfig::default(),
             debug: false,
         }
     }
@@ -183,9 +229,7 @@ impl Config {
         let text_width = font_manager.measure_text_accurate(&self.recipient_label, self.font_size, true);
 
         // Add padding (left margin + right margin)
-        // TABLE_MARGIN is 2.0 mm as defined in table.rs
-        const TABLE_MARGIN: f32 = 2.0;
-        text_width + (2.0 * TABLE_MARGIN)
+        text_width + (2.0 * self.layout.table_margin)
     }
 }
 
