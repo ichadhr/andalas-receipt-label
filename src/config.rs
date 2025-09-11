@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 use crate::font::FontManager;
+use crate::cache::{FontCache, MeasurementCache};
+use std::sync::Arc;
 
 /// Layout configuration for table rendering and positioning
 /// Contains all the magic numbers and layout constants used throughout the rendering pipeline
@@ -42,6 +44,61 @@ impl Default for LayoutConfig {
             order_vertical_position: 0.62,
         }
     }
+}
+
+/// Cache strategy for performance optimization
+#[derive(Debug, Clone)]
+pub enum CacheStrategy {
+    /// No caching - minimal memory usage
+    Disabled,
+
+    /// Basic caching - OnceLock fonts + global text cache (default)
+    Basic,
+
+    /// Advanced caching - configurable with limits and monitoring
+    Advanced(CacheSettings),
+
+    /// Custom caching - user provides cache implementations
+    Custom(CacheImplementations),
+}
+
+impl Default for CacheStrategy {
+    fn default() -> Self {
+        CacheStrategy::Basic
+    }
+}
+
+/// Settings for advanced caching configuration
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CacheSettings {
+    /// Maximum text measurement cache entries
+    pub max_text_entries: usize,
+
+    /// Enable cache statistics
+    pub enable_stats: bool,
+
+    /// Cache compression
+    pub compression: bool,
+}
+
+impl Default for CacheSettings {
+    fn default() -> Self {
+        Self {
+            max_text_entries: 1000,
+            enable_stats: false,
+            compression: false,
+        }
+    }
+}
+
+/// Custom cache implementations
+#[derive(Clone, Debug)]
+pub struct CacheImplementations {
+    /// Custom font cache implementation
+    pub font_cache: Option<Arc<dyn FontCache>>,
+
+    /// Custom text measurement cache implementation
+    pub text_cache: Option<Arc<dyn MeasurementCache>>,
 }
 
 /// Main configuration structure for ShipLabel PDF generation
@@ -118,6 +175,9 @@ pub struct Config {
     pub recipient_label: String,
     /// Layout configuration with positioning and spacing constants
     pub layout: LayoutConfig,
+    /// Caching strategy for performance optimization
+    #[serde(skip)]
+    pub caching: CacheStrategy,
     /// Enable debug mode for additional logging (default: false)
     pub debug: bool,
 }
@@ -141,6 +201,7 @@ impl Default for Config {
             row_height_ratios: [0.4, 0.5, 0.1],
             recipient_label: "Penerima:".to_string(),
             layout: LayoutConfig::default(),
+            caching: CacheStrategy::default(),
             debug: false,
         }
     }

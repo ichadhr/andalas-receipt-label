@@ -9,7 +9,9 @@
 //! - Cut guidelines
 //! - Custom fonts and styling
 
+use std::sync::Arc;
 
+pub mod cache;
 pub mod config;
 pub mod error;
 pub mod font;
@@ -19,6 +21,7 @@ pub mod renderer;
 pub mod table;
 pub mod text;
 
+pub use cache::*;
 pub use config::*;
 pub use error::*;
 pub use font::*;
@@ -66,6 +69,7 @@ pub use text::*;
 pub struct ShipLabel {
     config: Config,
     font_manager: FontManager,
+    cache_manager: CacheManager,
     document: krilla::Document,
 }
 
@@ -74,6 +78,7 @@ impl std::fmt::Debug for ShipLabel {
         f.debug_struct("ShipLabel")
             .field("config", &self.config)
             .field("font_manager", &"<FontManager>")
+            .field("cache_manager", &"<CacheManager>")
             .field("document", &"<KrillaDocument - not debuggable>")
             .finish()
     }
@@ -110,11 +115,13 @@ impl ShipLabel {
     /// ```
     pub fn with_config(config: Config) -> ShipLabelResult<Self> {
         let font_manager = FontManager::new()?;
+        let cache_manager = CacheManager::new(&config.caching)?;
         let document = krilla::Document::new();
 
         Ok(Self {
             config,
             font_manager,
+            cache_manager,
             document,
         })
     }
@@ -203,6 +210,155 @@ impl ShipLabel {
     /// ```
     pub fn document_mut(&mut self) -> &mut krilla::Document {
         &mut self.document
+    }
+
+    /// Get access to the cache manager for advanced operations
+    ///
+    /// # Examples
+    /// ```
+    /// use pdf::ShipLabel;
+    ///
+    /// let shiplabel = ShipLabel::new()?;
+    /// let cache_stats = shiplabel.cache_manager().stats();
+    /// println!("Cache hits: {}", cache_stats.hits);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn cache_manager(&self) -> &CacheManager {
+        &self.cache_manager
+    }
+
+    /// Create a new ShipLabel instance with advanced caching settings
+    ///
+    /// # Examples
+    /// ```
+    /// use pdf::{ShipLabel, CacheSettings};
+    ///
+    /// let settings = CacheSettings {
+    ///     max_text_entries: 10000,
+    ///     enable_stats: true,
+    ///     compression: false,
+    /// };
+    /// let shiplabel = ShipLabel::with_advanced_caching(settings)?;
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn with_advanced_caching(settings: CacheSettings) -> ShipLabelResult<Self> {
+        let mut config = Config::new();
+        config.caching = CacheStrategy::Advanced(settings);
+
+        Self::with_config(config)
+    }
+
+    /// Create a new ShipLabel instance with custom cache configuration
+    ///
+    /// # Examples
+    /// ```
+    /// use pdf::{ShipLabel, CacheConfig};
+    ///
+    /// let config = CacheConfig::high_performance();
+    /// let shiplabel = ShipLabel::with_cache_config(config)?;
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn with_cache_config(cache_config: CacheConfig) -> ShipLabelResult<Self> {
+        let font_manager = FontManager::new()?;
+        let mut config = Config::new();
+
+        // Set up advanced caching strategy
+        config.caching = CacheStrategy::Advanced(CacheSettings {
+            max_text_entries: cache_config.max_measurement_cache_entries,
+            enable_stats: cache_config.enable_stats,
+            compression: cache_config.cache_compression,
+        });
+
+        let cache_manager = CacheManager::new(&config.caching)?;
+        let document = krilla::Document::new();
+
+        Ok(Self {
+            config,
+            font_manager,
+            cache_manager,
+            document,
+        })
+    }
+
+    /// Create a new ShipLabel instance with a custom font cache
+    ///
+    /// # Examples
+    /// ```
+    /// use pdf::{ShipLabel, DefaultFontCache, CacheConfig};
+    /// use std::sync::Arc;
+    ///
+    /// let cache = Arc::new(DefaultFontCache::new(CacheConfig::default()));
+    /// let shiplabel = ShipLabel::with_custom_font_cache(cache)?;
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn with_custom_font_cache(font_cache: Arc<dyn FontCache>) -> ShipLabelResult<Self> {
+        let mut config = Config::new();
+        config.caching = CacheStrategy::Custom(CacheImplementations {
+            font_cache: Some(font_cache),
+            text_cache: None,
+        });
+
+        Self::with_config(config)
+    }
+
+    /// Create a new ShipLabel instance with a custom measurement cache
+    ///
+    /// # Examples
+    /// ```
+    /// use pdf::{ShipLabel, DefaultMeasurementCache, CacheConfig};
+    /// use std::sync::Arc;
+    ///
+    /// let cache = Arc::new(DefaultMeasurementCache::new(CacheConfig::default()));
+    /// let shiplabel = ShipLabel::with_custom_measurement_cache(cache)?;
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn with_custom_measurement_cache(measurement_cache: Arc<dyn MeasurementCache>) -> ShipLabelResult<Self> {
+        let mut config = Config::new();
+        config.caching = CacheStrategy::Custom(CacheImplementations {
+            font_cache: None,
+            text_cache: Some(measurement_cache),
+        });
+
+        Self::with_config(config)
+    }
+
+    /// Create a new ShipLabel instance with both custom caches
+    ///
+    /// # Examples
+    /// ```
+    /// use pdf::{ShipLabel, DefaultFontCache, DefaultMeasurementCache, CacheConfig};
+    /// use std::sync::Arc;
+    ///
+    /// let font_cache = Arc::new(DefaultFontCache::new(CacheConfig::default()));
+    /// let measurement_cache = Arc::new(DefaultMeasurementCache::new(CacheConfig::default()));
+    /// let shiplabel = ShipLabel::with_custom_caches(font_cache, measurement_cache)?;
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn with_custom_caches(font_cache: Arc<dyn FontCache>, measurement_cache: Arc<dyn MeasurementCache>) -> ShipLabelResult<Self> {
+        let mut config = Config::new();
+        config.caching = CacheStrategy::Custom(CacheImplementations {
+            font_cache: Some(font_cache),
+            text_cache: Some(measurement_cache),
+        });
+
+        Self::with_config(config)
+    }
+
+    /// Create a new ShipLabel instance without caching (minimal memory usage)
+    ///
+    /// # Examples
+    /// ```
+    /// use pdf::ShipLabel;
+    ///
+    /// // For memory-constrained environments
+    /// let shiplabel = ShipLabel::without_caching()?;
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn without_caching() -> ShipLabelResult<Self> {
+        let mut config = Config::new();
+        config.caching = CacheStrategy::Disabled;
+
+        Self::with_config(config)
     }
 }
 

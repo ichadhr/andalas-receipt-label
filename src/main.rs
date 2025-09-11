@@ -211,7 +211,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "📄 Open '{}' to view the generated shipping labels!",
         file_config.output_path.display()
     );
-    println!("🔍 Compare this with PHP output for accuracy validation.");
 
     Ok(())
 }
