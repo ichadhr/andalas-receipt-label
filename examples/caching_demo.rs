@@ -2,7 +2,7 @@
 //!
 //! This example demonstrates the different caching strategies available in ShipLabel.
 
-use pdf::*;
+use andalas_receipt_label::*;
 use std::time::Instant;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -68,7 +68,10 @@ fn demo_advanced_caching() -> ShipLabelResult<()> {
     // Show cache statistics
     let stats = shiplabel.cache_manager().stats();
     println!("   Initial cache state:");
-    println!("     Text measurements cached: {}", stats.text_measurement_cache_size);
+    println!(
+        "     Text measurements cached: {}",
+        stats.text_measurement_cache_size
+    );
     println!("     Font cache loaded: {}", stats.font_cache_loaded);
 
     // Create renderer and generate labels to populate cache
@@ -84,7 +87,10 @@ fn demo_advanced_caching() -> ShipLabelResult<()> {
     // Show updated statistics
     let updated_stats = shiplabel.cache_manager().stats();
     println!("   After processing:");
-    println!("     Text measurements cached: {}", updated_stats.text_measurement_cache_size);
+    println!(
+        "     Text measurements cached: {}",
+        updated_stats.text_measurement_cache_size
+    );
 
     println!("   PDF size: {} bytes", pdf_data.len());
 
@@ -132,10 +138,7 @@ fn create_sample_labels(count: usize) -> Vec<LabelData> {
                 format!("Items: Product {}, Product {}", i + 1, i + 2),
                 format!("[\"Brand {}\", \"Website {}\"]", i + 1, i + 1),
             ],
-            vec![
-                format!("#00{}", i + 1),
-                format!("2024-01-{:02}", i + 1),
-            ],
+            vec![format!("#00{}", i + 1), format!("2024-01-{:02}", i + 1)],
         ];
 
         labels.push(LabelData::new(rows));

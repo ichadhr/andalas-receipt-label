@@ -12,8 +12,8 @@ use crate::error::ShipLabelResult;
 use crate::font::FontManager;
 use crate::label::LabelData;
 use crate::table::TableRenderer;
-use krilla::Document;
 use krilla::page::PageSettings;
+use krilla::Document;
 
 // Cut guideline rendering constants
 const CUT_GUIDELINE_DASH_LENGTH: f32 = 4.0;
@@ -83,12 +83,13 @@ impl LabelRenderer {
         let table_renderer = TableRenderer::new(&self.config, &self.font_manager);
 
         // Create a new page
-        let page_size = krilla::geom::Size::from_wh(
-            self.config.page_width,
-            self.config.page_height
-        ).ok_or_else(|| crate::error::ShipLabelError::Config("Invalid page dimensions".to_string()))?;
+        let page_size =
+            krilla::geom::Size::from_wh(self.config.page_width, self.config.page_height)
+                .ok_or_else(|| {
+                    crate::error::ShipLabelError::Config("Invalid page dimensions".to_string())
+                })?;
 
-        let page_settings = PageSettings::new(page_size.width(), page_size.height());
+        let page_settings = PageSettings::new(page_size);
         let mut page = self.document.start_page_with(page_settings);
         let mut surface = page.surface();
 
@@ -109,7 +110,8 @@ impl LabelRenderer {
             // Add cut guideline if not the last label on page
             if i < self.pending_labels.len() - 1 {
                 // Position cut guideline between labels (in the middle of the gap)
-                let cut_guideline_y = table_y + self.config.table_height + (self.config.table_gap / 2.0);
+                let cut_guideline_y =
+                    table_y + self.config.table_height + (self.config.table_gap / 2.0);
                 Self::add_cut_guideline(&mut surface, cut_guideline_y, &self.config)?;
             }
 
@@ -154,14 +156,19 @@ impl LabelRenderer {
         }
 
         // Finish document and return PDF data
-        let pdf_data = self.document.finish()
-            .map_err(|e| crate::error::ShipLabelError::Pdf(format!("Failed to finish PDF document: {:?}", e)))?;
+        let pdf_data = self.document.finish().map_err(|e| {
+            crate::error::ShipLabelError::Pdf(format!("Failed to finish PDF document: {:?}", e))
+        })?;
 
         Ok(pdf_data)
     }
 
     /// Add a cut guideline between labels
-    pub fn add_cut_guideline(surface: &mut krilla::surface::Surface, y_position: f32, config: &Config) -> ShipLabelResult<()> {
+    pub fn add_cut_guideline(
+        surface: &mut krilla::surface::Surface,
+        y_position: f32,
+        config: &Config,
+    ) -> ShipLabelResult<()> {
         // Calculate the horizontal span for the cut guideline (full page width)
         let line_start_x = 0.0; // Start from left edge of page
         let line_end_x = config.page_width; // End at right edge of page
@@ -257,12 +264,15 @@ mod tests {
         assert_eq!(renderer.config().page_height, config.page_height);
     }
 
-
     #[test]
     fn test_label_data_conversion() {
         // Test that we can convert sample data to row types
         let rows = vec![
-            vec!["John Doe".to_string(), "123 Main St".to_string(), "555-0123".to_string()],
+            vec![
+                "John Doe".to_string(),
+                "123 Main St".to_string(),
+                "555-0123".to_string(),
+            ],
             vec!["items: T-shirt".to_string(), "[\"Brand Name\"]".to_string()],
             vec!["#0001".to_string(), "2024-01-01".to_string()],
         ];
@@ -272,8 +282,14 @@ mod tests {
 
         assert_eq!(row_types.len(), 3);
         assert!(matches!(row_types[0], crate::label::RowType::Header(_)));
-        assert!(matches!(row_types[1], crate::label::RowType::QrContent(_, _)));
-        assert!(matches!(row_types[2], crate::label::RowType::OrderInfo(_, _)));
+        assert!(matches!(
+            row_types[1],
+            crate::label::RowType::QrContent(_, _)
+        ));
+        assert!(matches!(
+            row_types[2],
+            crate::label::RowType::OrderInfo(_, _)
+        ));
     }
 
     #[test]
@@ -294,7 +310,6 @@ mod tests {
 
     #[test]
     fn test_empty_label_handling() {
-
         // Empty label should be handled gracefully
         let empty_label = LabelData::new(vec![]);
         assert!(empty_label.to_row_types().is_err());
@@ -302,11 +317,8 @@ mod tests {
 
     #[test]
     fn test_invalid_label_structure() {
-
         // Label with wrong number of rows
-        let invalid_label = LabelData::new(vec![
-            vec!["test".to_string()]
-        ]);
+        let invalid_label = LabelData::new(vec![vec!["test".to_string()]]);
         assert!(invalid_label.to_row_types().is_err());
     }
 
@@ -332,17 +344,17 @@ mod tests {
 
     #[test]
     fn test_sample_data_integration() {
-        use std::fs;
         use serde_json;
+        use std::fs;
 
         // Load sample data
-        let sample_data_path = "output/sample.json";
-        let sample_content = fs::read_to_string(sample_data_path)
-            .expect("Failed to read sample.json");
+        let sample_data_path = "input/sample.json";
+        let sample_content =
+            fs::read_to_string(sample_data_path).expect("Failed to read sample.json");
 
         // Parse as raw JSON first to handle the complex structure
-        let raw_labels: Vec<serde_json::Value> = serde_json::from_str(&sample_content)
-            .expect("Failed to parse sample.json");
+        let raw_labels: Vec<serde_json::Value> =
+            serde_json::from_str(&sample_content).expect("Failed to parse sample.json");
 
         assert_eq!(raw_labels.len(), 8, "Should have 8 sample labels");
 
@@ -359,7 +371,8 @@ mod tests {
         let mut label_data_rows = Vec::new();
 
         // Header row: [name, address, phone]
-        let header_strings: Vec<String> = header_row.iter()
+        let header_strings: Vec<String> = header_row
+            .iter()
             .map(|v| v.as_str().unwrap().to_string())
             .collect();
         label_data_rows.push(header_strings);
@@ -367,14 +380,16 @@ mod tests {
         // QR row: [items_text, brand_array] -> [items_text, brand_json_string]
         let items_text = qr_row[0].as_str().unwrap().to_string();
         let brand_array = qr_row[1].as_array().unwrap();
-        let brand_strings: Vec<String> = brand_array.iter()
+        let brand_strings: Vec<String> = brand_array
+            .iter()
             .map(|v| v.as_str().unwrap().to_string())
             .collect();
         let brand_json = serde_json::to_string(&brand_strings).unwrap();
         label_data_rows.push(vec![items_text, brand_json]);
 
         // Order row: [order_id, date]
-        let order_strings: Vec<String> = order_row.iter()
+        let order_strings: Vec<String> = order_row
+            .iter()
             .map(|v| v.as_str().unwrap().to_string())
             .collect();
         label_data_rows.push(order_strings);
@@ -398,7 +413,10 @@ mod tests {
             crate::label::RowType::QrContent(qr_data, brand_lines) => {
                 assert!(qr_data.contains("items:"), "QR data should contain items");
                 assert!(!brand_lines.is_empty(), "Should have brand lines");
-                assert_eq!(brand_lines[0], "Andalas Branded", "First brand line should be correct");
+                assert_eq!(
+                    brand_lines[0], "Andalas Branded",
+                    "First brand line should be correct"
+                );
             }
             _ => panic!("Second row should be QrContent"),
         }
@@ -416,17 +434,17 @@ mod tests {
 
     #[test]
     fn test_complete_rendering_pipeline() {
-        use std::fs;
         use serde_json;
+        use std::fs;
 
         // Load sample data
-        let sample_data_path = "output/sample.json";
-        let sample_content = fs::read_to_string(sample_data_path)
-            .expect("Failed to read sample.json");
+        let sample_data_path = "input/sample.json";
+        let sample_content =
+            fs::read_to_string(sample_data_path).expect("Failed to read sample.json");
 
         // Parse as raw JSON first to handle the complex structure
-        let raw_labels: Vec<serde_json::Value> = serde_json::from_str(&sample_content)
-            .expect("Failed to parse sample.json");
+        let raw_labels: Vec<serde_json::Value> =
+            serde_json::from_str(&sample_content).expect("Failed to parse sample.json");
 
         // Convert first 4 labels to LabelData format for testing
         let mut test_labels = Vec::new();
@@ -444,7 +462,8 @@ mod tests {
             let mut label_data_rows = Vec::new();
 
             // Header row: [name, address, phone]
-            let header_strings: Vec<String> = header_row.iter()
+            let header_strings: Vec<String> = header_row
+                .iter()
                 .map(|v| v.as_str().unwrap().to_string())
                 .collect();
             label_data_rows.push(header_strings);
@@ -452,14 +471,16 @@ mod tests {
             // QR row: [items_text, brand_array] -> [items_text, brand_json_string]
             let items_text = qr_row[0].as_str().unwrap().to_string();
             let brand_array = qr_row[1].as_array().unwrap();
-            let brand_strings: Vec<String> = brand_array.iter()
+            let brand_strings: Vec<String> = brand_array
+                .iter()
                 .map(|v| v.as_str().unwrap().to_string())
                 .collect();
             let brand_json = serde_json::to_string(&brand_strings).unwrap();
             label_data_rows.push(vec![items_text, brand_json]);
 
             // Order row: [order_id, date]
-            let order_strings: Vec<String> = order_row.iter()
+            let order_strings: Vec<String> = order_row
+                .iter()
                 .map(|v| v.as_str().unwrap().to_string())
                 .collect();
             label_data_rows.push(order_strings);
@@ -477,7 +498,11 @@ mod tests {
         }
 
         // Verify state
-        assert_eq!(renderer.labels_rendered(), 2, "Should have rendered 2 labels");
+        assert_eq!(
+            renderer.labels_rendered(),
+            2,
+            "Should have rendered 2 labels"
+        );
         assert_eq!(renderer.page_count(), 1, "Should be on page 1");
 
         // Render 2 more labels (should go to page 2)
@@ -486,29 +511,36 @@ mod tests {
         }
 
         // Verify state after second page
-        assert_eq!(renderer.labels_rendered(), 4, "Should have rendered 4 labels");
+        assert_eq!(
+            renderer.labels_rendered(),
+            4,
+            "Should have rendered 4 labels"
+        );
         assert_eq!(renderer.page_count(), 2, "Should be on page 2");
 
         // Finish rendering
         let pdf_data = renderer.finish().unwrap();
         assert!(!pdf_data.is_empty(), "PDF data should not be empty");
 
-        println!("✅ Complete rendering pipeline test passed - generated {} bytes PDF", pdf_data.len());
+        println!(
+            "✅ Complete rendering pipeline test passed - generated {} bytes PDF",
+            pdf_data.len()
+        );
     }
 
     #[test]
     fn test_multi_page_rendering() {
-        use std::fs;
         use serde_json;
+        use std::fs;
 
         // Load sample data
-        let sample_data_path = "output/sample.json";
-        let sample_content = fs::read_to_string(sample_data_path)
-            .expect("Failed to read sample.json");
+        let sample_data_path = "input/sample.json";
+        let sample_content =
+            fs::read_to_string(sample_data_path).expect("Failed to read sample.json");
 
         // Parse as raw JSON first to handle the complex structure
-        let raw_labels: Vec<serde_json::Value> = serde_json::from_str(&sample_content)
-            .expect("Failed to parse sample.json");
+        let raw_labels: Vec<serde_json::Value> =
+            serde_json::from_str(&sample_content).expect("Failed to parse sample.json");
 
         // Convert all 8 labels to LabelData format
         let mut test_labels = Vec::new();
@@ -526,7 +558,8 @@ mod tests {
             let mut label_data_rows = Vec::new();
 
             // Header row: [name, address, phone]
-            let header_strings: Vec<String> = header_row.iter()
+            let header_strings: Vec<String> = header_row
+                .iter()
                 .map(|v| v.as_str().unwrap().to_string())
                 .collect();
             label_data_rows.push(header_strings);
@@ -534,14 +567,16 @@ mod tests {
             // QR row: [items_text, brand_array] -> [items_text, brand_json_string]
             let items_text = qr_row[0].as_str().unwrap().to_string();
             let brand_array = qr_row[1].as_array().unwrap();
-            let brand_strings: Vec<String> = brand_array.iter()
+            let brand_strings: Vec<String> = brand_array
+                .iter()
                 .map(|v| v.as_str().unwrap().to_string())
                 .collect();
             let brand_json = serde_json::to_string(&brand_strings).unwrap();
             label_data_rows.push(vec![items_text, brand_json]);
 
             // Order row: [order_id, date]
-            let order_strings: Vec<String> = order_row.iter()
+            let order_strings: Vec<String> = order_row
+                .iter()
                 .map(|v| v.as_str().unwrap().to_string())
                 .collect();
             label_data_rows.push(order_strings);
@@ -561,29 +596,36 @@ mod tests {
         }
 
         // Verify final state
-        assert_eq!(renderer.labels_rendered(), 8, "Should have rendered all 8 labels");
+        assert_eq!(
+            renderer.labels_rendered(),
+            8,
+            "Should have rendered all 8 labels"
+        );
         assert_eq!(renderer.page_count(), 8, "Should have 8 pages");
 
         // Finish rendering
         let pdf_data = renderer.finish().unwrap();
         assert!(!pdf_data.is_empty(), "PDF data should not be empty");
 
-        println!("✅ Multi-page rendering test passed - 8 labels on 8 pages, {} bytes PDF", pdf_data.len());
+        println!(
+            "✅ Multi-page rendering test passed - 8 labels on 8 pages, {} bytes PDF",
+            pdf_data.len()
+        );
     }
 
     #[test]
     fn test_complete_label_rendering_integration() {
-        use std::fs;
         use serde_json;
+        use std::fs;
 
         // Load all sample data
-        let sample_data_path = "output/sample.json";
-        let sample_content = fs::read_to_string(sample_data_path)
-            .expect("Failed to read sample.json");
+        let sample_data_path = "input/sample.json";
+        let sample_content =
+            fs::read_to_string(sample_data_path).expect("Failed to read sample.json");
 
         // Parse as raw JSON first to handle the complex structure
-        let raw_labels: Vec<serde_json::Value> = serde_json::from_str(&sample_content)
-            .expect("Failed to parse sample.json");
+        let raw_labels: Vec<serde_json::Value> =
+            serde_json::from_str(&sample_content).expect("Failed to parse sample.json");
 
         // Convert all labels to LabelData format
         let mut all_labels = Vec::new();
@@ -600,7 +642,8 @@ mod tests {
             let mut label_data_rows = Vec::new();
 
             // Header row: [name, address, phone]
-            let header_strings: Vec<String> = header_row.iter()
+            let header_strings: Vec<String> = header_row
+                .iter()
                 .map(|v| v.as_str().unwrap().to_string())
                 .collect();
             label_data_rows.push(header_strings);
@@ -608,14 +651,16 @@ mod tests {
             // QR row: [items_text, brand_array] -> [items_text, brand_json_string]
             let items_text = qr_row[0].as_str().unwrap().to_string();
             let brand_array = qr_row[1].as_array().unwrap();
-            let brand_strings: Vec<String> = brand_array.iter()
+            let brand_strings: Vec<String> = brand_array
+                .iter()
                 .map(|v| v.as_str().unwrap().to_string())
                 .collect();
             let brand_json = serde_json::to_string(&brand_strings).unwrap();
             label_data_rows.push(vec![items_text, brand_json]);
 
             // Order row: [order_id, date]
-            let order_strings: Vec<String> = order_row.iter()
+            let order_strings: Vec<String> = order_row
+                .iter()
                 .map(|v| v.as_str().unwrap().to_string())
                 .collect();
             label_data_rows.push(order_strings);
@@ -636,8 +681,16 @@ mod tests {
         }
 
         // Verify final state
-        assert_eq!(renderer.labels_rendered(), 8, "Should have rendered all 8 labels");
-        assert_eq!(renderer.page_count(), 4, "Should have 4 pages (8 labels / 2 per page)");
+        assert_eq!(
+            renderer.labels_rendered(),
+            8,
+            "Should have rendered all 8 labels"
+        );
+        assert_eq!(
+            renderer.page_count(),
+            4,
+            "Should have 4 pages (8 labels / 2 per page)"
+        );
 
         // Finish rendering and get PDF data
         let pdf_data = renderer.finish().unwrap();
@@ -658,7 +711,10 @@ mod tests {
         // Verify PDF structure (basic validation)
         let pdf_str = String::from_utf8_lossy(&pdf_data);
         assert!(pdf_str.contains("%PDF"), "Should be a valid PDF file");
-        assert!(pdf_str.contains("%%EOF"), "PDF should have proper EOF marker");
+        assert!(
+            pdf_str.contains("%%EOF"),
+            "PDF should have proper EOF marker"
+        );
 
         println!("   ✅ PDF structure validation passed");
         println!("   🎉 ShipLabel library integration test COMPLETED SUCCESSFULLY!");

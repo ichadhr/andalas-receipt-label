@@ -1,4 +1,4 @@
-use pdf::*;
+use andalas_receipt_label::*;
 use serde_json;
 use std::fs;
 use std::path::PathBuf;
@@ -12,7 +12,7 @@ struct FileConfig {
 impl Default for FileConfig {
     fn default() -> Self {
         Self {
-            input_path: PathBuf::from("output/sample.json"),
+            input_path: PathBuf::from("input/sample.json"),
             output_path: PathBuf::from("output/complete_rust_labels.pdf"),
         }
     }
@@ -25,12 +25,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let file_config = FileConfig::default();
 
     // Load sample data
-    println!("📂 Loading sample data from {}...", file_config.input_path.display());
+    println!(
+        "📂 Loading sample data from {}...",
+        file_config.input_path.display()
+    );
     let sample_content = fs::read_to_string(&file_config.input_path)
         .map_err(|e| format!("Failed to read {}: {}", file_config.input_path.display(), e))?;
 
-    let raw_labels: Vec<serde_json::Value> = serde_json::from_str(&sample_content)
-        .map_err(|e| format!("Failed to parse JSON from {}: {}", file_config.input_path.display(), e))?;
+    let raw_labels: Vec<serde_json::Value> =
+        serde_json::from_str(&sample_content).map_err(|e| {
+            format!(
+                "Failed to parse JSON from {}: {}",
+                file_config.input_path.display(),
+                e
+            )
+        })?;
 
     println!("✅ Loaded {} sample labels", raw_labels.len());
 
@@ -39,19 +48,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut all_labels = Vec::new();
 
     for (i, label_value) in raw_labels.iter().enumerate() {
-        let label_array = label_value.as_array()
+        let label_array = label_value
+            .as_array()
             .ok_or_else(|| format!("Label {}: Expected array, got {:?}", i, label_value))?;
 
         // Extract the three rows
-        let header_row = label_array.get(0)
+        let header_row = label_array
+            .get(0)
             .and_then(|v| v.as_array())
             .ok_or_else(|| format!("Label {}: Invalid header row structure", i))?;
 
-        let qr_row = label_array.get(1)
+        let qr_row = label_array
+            .get(1)
             .and_then(|v| v.as_array())
             .ok_or_else(|| format!("Label {}: Invalid QR row structure", i))?;
 
-        let order_row = label_array.get(2)
+        let order_row = label_array
+            .get(2)
             .and_then(|v| v.as_array())
             .ok_or_else(|| format!("Label {}: Invalid order row structure", i))?;
 
@@ -61,27 +74,33 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Header row: [name, address, phone]
         let header_strings: Vec<String> = header_row
             .iter()
-            .map(|v| v.as_str()
-                .ok_or_else(|| format!("Label {}: Header field is not a string", i))
-                .map(|s| s.to_string()))
+            .map(|v| {
+                v.as_str()
+                    .ok_or_else(|| format!("Label {}: Header field is not a string", i))
+                    .map(|s| s.to_string())
+            })
             .collect::<Result<Vec<_>, _>>()?;
         label_data_rows.push(header_strings);
 
         // QR row: [items_text, brand_array] -> [items_text, brand_json_string]
-        let items_text = qr_row.get(0)
+        let items_text = qr_row
+            .get(0)
             .and_then(|v| v.as_str())
             .ok_or_else(|| format!("Label {}: Invalid items text in QR row", i))?
             .to_string();
 
-        let brand_array = qr_row.get(1)
+        let brand_array = qr_row
+            .get(1)
             .and_then(|v| v.as_array())
             .ok_or_else(|| format!("Label {}: Invalid brand array in QR row", i))?;
 
         let brand_strings: Vec<String> = brand_array
             .iter()
-            .map(|v| v.as_str()
-                .ok_or_else(|| format!("Label {}: Brand field is not a string", i))
-                .map(|s| s.to_string()))
+            .map(|v| {
+                v.as_str()
+                    .ok_or_else(|| format!("Label {}: Brand field is not a string", i))
+                    .map(|s| s.to_string())
+            })
             .collect::<Result<Vec<_>, _>>()?;
 
         let brand_json = serde_json::to_string(&brand_strings)
@@ -91,35 +110,34 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Order row: [order_id, date]
         let order_strings: Vec<String> = order_row
             .iter()
-            .map(|v| v.as_str()
-                .ok_or_else(|| format!("Label {}: Order field is not a string", i))
-                .map(|s| s.to_string()))
+            .map(|v| {
+                v.as_str()
+                    .ok_or_else(|| format!("Label {}: Order field is not a string", i))
+                    .map(|s| s.to_string())
+            })
             .collect::<Result<Vec<_>, _>>()?;
         label_data_rows.push(order_strings);
 
         let label_data = LabelData::new(label_data_rows);
         all_labels.push(label_data);
 
-        let header_name = header_row.get(0)
+        let header_name = header_row
+            .get(0)
             .and_then(|v| v.as_str())
             .unwrap_or("Unknown");
 
-        let order_id = order_row.get(0)
+        let order_id = order_row
+            .get(0)
             .and_then(|v| v.as_str())
             .unwrap_or("Unknown");
 
-        println!(
-            "   Label #{}: {} - {}",
-            i + 1,
-            header_name,
-            order_id
-        );
+        println!("   Label #{}: {} - {}", i + 1, header_name, order_id);
     }
 
     // Create renderer with default settings (2 labels per page)
     println!("🎨 Creating LabelRenderer with default configuration...");
-    let font_manager = FontManager::new()
-        .map_err(|e| format!("Failed to create font manager: {}", e))?;
+    let font_manager =
+        FontManager::new().map_err(|e| format!("Failed to create font manager: {}", e))?;
 
     let mut renderer = LabelRenderer::with_defaults(font_manager)
         .map_err(|e| format!("Failed to create label renderer: {}", e))?;
@@ -150,7 +168,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Render all labels
     println!("🏭 Rendering {} shipping labels...", all_labels.len());
     for (i, label) in all_labels.iter().enumerate() {
-        renderer.render_label(label)
+        renderer
+            .render_label(label)
             .map_err(|e| format!("Failed to render label {}: {}", i + 1, e))?;
 
         if (i + 1) % 2 == 0 {
@@ -164,12 +183,27 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Finish rendering and get PDF data
     println!("📄 Finalizing PDF generation...");
-    let pdf_data = renderer.finish()
+    let pdf_data = renderer
+        .finish()
         .map_err(|e| format!("Failed to finalize PDF: {}", e))?;
 
     // Save the PDF
-    fs::write(&file_config.output_path, &pdf_data)
-        .map_err(|e| format!("Failed to write PDF to {}: {}", file_config.output_path.display(), e))?;
+    if let Some(parent) = file_config.output_path.parent() {
+        fs::create_dir_all(parent).map_err(|e| {
+            format!(
+                "Failed to create output directory {}: {}",
+                parent.display(),
+                e
+            )
+        })?;
+    }
+    fs::write(&file_config.output_path, &pdf_data).map_err(|e| {
+        format!(
+            "Failed to write PDF to {}: {}",
+            file_config.output_path.display(),
+            e
+        )
+    })?;
 
     println!("✅ SUCCESS! Shipping label PDF generated");
     println!("📁 Output file: {}", file_config.output_path.display());
